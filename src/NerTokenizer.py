@@ -3,89 +3,55 @@ Known errors:
     Trump is sometimes tagged as an ORG
     U.S. is sometimes tagged as a PERSON
 """
+def separate_tags(text):
+    revised_text = []
+    for ent_ in text:
+        if ent_[2] == "O":
+            continue
+        else: 
+            if ent_[3] == "O":
+                con_tag = ''
+                ent_type = ent_[3]
+                revised_text.append((ent_[0], con_tag, ent_type))
+            else:
+                con_tag = ent_[3].split("-")[0]
+                ent_type = ent_[3].split("-")[1]
+                revised_text.append((ent_[0], con_tag, ent_type))
+    return revised_text
 
 from sklearn.base import TransformerMixin
 class NERTokenizer(TransformerMixin):
     """If 'tag' is True, Person entities .startswith("*") and other entities deemed "good" .startswith("&")"""
-    def __init__(self, tag = False):
-        self._tag = tag
 
     def fit(self, X, *_):
         return self
 
     def transform(self, X, *_):
-        from nltk.corpus import stopwords
-        from nltk.stem.snowball import SnowballStemmer
-        stemmer = SnowballStemmer("english")
-
-        import spacy
-        from spacy.gold import iob_to_biluo
-        nlp = spacy.load('en_core_web_md', disable=['parser','tagger','textcat'])
-        from spacy.attrs import ORTH
-        nlp.tokenizer.add_special_case("I'm", [{ORTH: "I'm"}])
-        nlp.vocab.add_flag(lambda s: s.lower() in spacy.lang.en.stop_words.STOP_WORDS, spacy.attrs.IS_STOP)
-
-        english_stopwords = stopwords.words('english')
-        english_stopwords.append("i'm")
+        from underthesea import ner
 
         tokenized_corpus = []
-        good_ents = ["PERSON","GPE","ORG", "LOC", "EVENT", "FAC"]
-        continue_tags = ["B-","I-"]
-        end_tags = ["L-","U-"]
-
-
+        toks = []
+        good_ents = ["PER","LOC","ORG"]
+        continue_tags = ["B","I"]
 
         for text in X:
             toks = []
-            iobs = [i.ent_iob_ for i in nlp(text)]
-            biluos = list(iob_to_biluo(iobs))
             #Named entities variable
-            ne = ""
-            for index, tok in enumerate(nlp(text)):
-                if biluos[index] in continue_tags and str(tok.ent_type_) in good_ents:
+            cleaned_text = separate_tags(ner(text))
+            for index, tok in enumerate(cleaned_text):
+                if tok[1] in continue_tags and tok[2] in good_ents:
                     #str(tok).split() != [] Checks if empty token
                     #For some reason tok.whitespace_ doesn't include double token entities
-                    #like "JENNIFER LAWRENCE"
-                    if not self._tag:
-                        ne += " " + str(tok).lower()
-                    elif self._tag and str(tok).split() != []:
-                        #Entity is the beginning of an entity set
-                        if biluos[index] == "B-":
-                            if str(tok.ent_type_) != "PERSON":
-                                ne += " &" + str(tok).lower()
-                            elif str(tok.ent_type_) == "PERSON":
-                                ne += " *" + str(tok).lower()
-                        else:
-                            if str(tok.ent_type_) != "PERSON":
-                                ne += " " + str(tok).lower()
-                            elif str(tok.ent_type_) == "PERSON":
-                                ne += " " + str(tok).lower()
-                elif biluos[index] in end_tags and str(tok.ent_type_) in good_ents:
-                    if not self._tag:
-                        ne += " " + str(tok).lower()
-                        toks.append(ne.lstrip())
-                        ne = " "
-                    elif self._tag and str(tok).split() != []:
-                        #Entity is just a single unit
-                        if biluos[index] == "U-":
-                            if str(tok.ent_type_) != "PERSON":
-                                ne += " &" + str(tok).lower()
-                                toks.append(ne.lstrip())
-                                ne = " "
-                            elif str(tok.ent_type_) == "PERSON":
-                                ne += " *" + str(tok).lower()
-                                ne.replace("*’m", "")
-                                toks.append(ne.lstrip())
-                                ne = " "
-                        else:
-                            ne += " " + str(tok).lower()
-                            # so that possesive tags are not stored with the '’s'
-                            ne = ne.replace("’s", "")
-                            toks.append(ne.lstrip())
-                            ne = " "
-                #If token is just a boring old word
-                else:
-                    if not tok.is_punct and not tok.is_space and str(tok).lower() not in english_stopwords:
-                        toks.append(stemmer.stem(str(tok)))
+                    #like "JENNIFER LAWRENCE"                  
+                    if tok[1] == "B":
+                        if tok[2] != "PER":
+                            toks.append("&" + str(tok[0]).lower())
+                        elif tok[2] == "PER":
+                            toks.append("*" + str(tok[0]).lower())
+                    else:                        
+                        toks.append(str(tok[0]).lower())
+                else:  
+                    toks.append(str(tok[0]).lower())
             tokenized_corpus.append(toks)
         return tokenized_corpus
+    
