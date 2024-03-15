@@ -40,9 +40,6 @@ class NERTokenizer(TransformerMixin):
             cleaned_text = separate_tags(ner(text))
             for index, tok in enumerate(cleaned_text):
                 if tok[1] in continue_tags and tok[2] in good_ents:
-                    #str(tok).split() != [] Checks if empty token
-                    #For some reason tok.whitespace_ doesn't include double token entities
-                    #like "JENNIFER LAWRENCE"                  
                     if tok[1] == "B":
                         if tok[2] != "PER":
                             toks.append("&" + str(tok[0]).lower())
