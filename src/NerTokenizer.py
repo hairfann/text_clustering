@@ -3,21 +3,6 @@ Known errors:
     Trump is sometimes tagged as an ORG
     U.S. is sometimes tagged as a PERSON
 """
-def separate_tags(text):
-    revised_text = []
-    for ent_ in text:
-        if ent_[2] == "O":
-            continue
-        else: 
-            if ent_[3] == "O":
-                con_tag = ''
-                ent_type = ent_[3]
-                revised_text.append((ent_[0], con_tag, ent_type))
-            else:
-                con_tag = ent_[3].split("-")[0]
-                ent_type = ent_[3].split("-")[1]
-                revised_text.append((ent_[0], con_tag, ent_type))
-    return revised_text
 
 from sklearn.base import TransformerMixin
 class NERTokenizer(TransformerMixin):
@@ -25,6 +10,24 @@ class NERTokenizer(TransformerMixin):
 
     def fit(self, X, *_):
         return self
+    
+    @staticmethod
+    def separate_tags(text):
+        revised_text = []
+        for ent_ in text:
+            if ent_[2] == "O":
+                continue
+            else: 
+                if ent_[3] == "O":
+                    con_tag = ''
+                    ent_type = ent_[3]
+                    revised_text.append((ent_[0], con_tag, ent_type))
+                else:
+                    con_tag = ent_[3].split("-")[0]
+                    ent_type = ent_[3].split("-")[1]
+                    revised_text.append((ent_[0], con_tag, ent_type))
+        return revised_text
+
 
     def transform(self, X, *_):
         from underthesea import ner
